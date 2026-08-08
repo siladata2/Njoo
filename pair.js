@@ -1,13 +1,11 @@
+const { makeid } = require('./gen-id');
 const express = require('express');
 const QRCode = require('qrcode');
 const fs = require('fs');
-const pino = require('pino');
+let router = express.Router();
+const pino = require("pino");
 const zlib = require('zlib');
 const path = require('path');
-const { makeid } = require('./gen-id'); // Unda hii file
-
-let router = express.Router();
-let makeWASocket, useMultiFileAuthState, delay, Browsers, jidNormalizedUser;
 
 // ============= HELPER FUNCTIONS =============
 function removeFile(FilePath) {
@@ -25,16 +23,18 @@ function generateSessionId() {
     return sessionID;
 }
 
-// ============= MAIN ROUTE =============
+// dynamically load baileys when needed (ESM-only module)
+let makeWASocket, useMultiFileAuthState, delay, Browsers, jidNormalizedUser;
+
 router.get('/', async (req, res) => {
     const id = makeid();
-    const num = req.query.number;
-    const method = req.query.method || 'pair'; // 'pair' au 'qr'
+    let num = req.query.number;
+    const method = req.query.method || 'pair';
 
     if (!num || num.length < 7) {
-        return res.status(400).json({ 
+        return res.status(400).json({
             success: false,
-            error: 'Tafadhali weka namba sahihi ya simu' 
+            error: 'Tafadhali weka namba sahihi ya simu'
         });
     }
 
@@ -43,15 +43,15 @@ router.get('/', async (req, res) => {
     } catch (err) {
         console.error('❌ Pairing route crashed:', err);
         if (!res.headersSent) {
-            await res.status(502).json({ 
+            await res.status(502).json({
                 success: false,
-                error: 'Pairing service temporarily unavailable' 
+                error: 'Pairing service temporarily unavailable'
             });
         }
     }
 
     async function BLAZE_MD_PAIR_CODE() {
-        // Load baileys modules lazily
+        // load baileys modules lazily to avoid ESM import errors
         if (!makeWASocket) {
             const baileys = await import('@whiskeysockets/baileys');
             makeWASocket = baileys.makeWASocket;
@@ -84,7 +84,7 @@ router.get('/', async (req, res) => {
                     // Request pairing code
                     const code = await sock.requestPairingCode(num);
                     console.log('📱 Pairing code sent to:', num);
-                    
+
                     if (!responseSent) {
                         responseSent = true;
                         res.json({
@@ -95,7 +95,6 @@ router.get('/', async (req, res) => {
                     }
                 } catch (err) {
                     console.log('⚠️ Pairing failed, falling back to QR');
-                    // Fallback to QR
                 }
             }
 
@@ -107,7 +106,7 @@ router.get('/', async (req, res) => {
                 if (qr) {
                     qrCode = qr;
                     console.log('📷 QR Code generated');
-                    
+
                     if (method === 'qr' && !responseSent) {
                         responseSent = true;
                         res.json({
@@ -122,7 +121,7 @@ router.get('/', async (req, res) => {
                 if (connection === "open" && sock?.user?.id) {
                     isConnected = true;
                     console.log('✅ Connected successfully!');
-                    
+
                     await delay(3000);
                     await saveCreds();
 
@@ -130,7 +129,7 @@ router.get('/', async (req, res) => {
                     const authPath = './temp/' + id;
                     const files = fs.readdirSync(authPath);
                     const sessionData = {};
-                    
+
                     files.forEach(file => {
                         const filePath = path.join(authPath, file);
                         if (fs.statSync(filePath).isFile()) {
@@ -156,9 +155,9 @@ router.get('/', async (req, res) => {
                         // Send success message
                         await sock.sendMessage(userJid, {
                             text: `✅ *Session Generated Successfully!*\n\n` +
-                                  `📱 *Device:* ${sock.user.name || 'WhatsApp Bot'}\n` +
-                                  `🔑 *Session ID:* ${sessionId}\n\n` +
-                                  `> © Powered by SILA Session Generator`
+                                `📱 *Device:* ${sock.user.name || 'WhatsApp Bot'}\n` +
+                                `🔑 *Session ID:* ${sessionId}\n\n` +
+                                `> © Powered by SILA Session Generator`
                         });
 
                         console.log(`✅ Session sent to ${userJid}`);
@@ -241,18 +240,5 @@ router.get('/', async (req, res) => {
         }
     }
 });
-
-// ============= GEN-ID HELPER =============
-function makeid() {
-    let result = '';
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const charactersLength = characters.length;
-    let counter = 0;
-    while (counter < 10) {
-        result += characters.charAt(Math.floor(Math.random() * charactersLength));
-        counter += 1;
-    }
-    return result;
-}
 
 module.exports = router;
