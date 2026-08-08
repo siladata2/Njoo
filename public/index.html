@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
+        /* ===== SAME STYLES AS BEFORE ===== */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         
         * {
@@ -26,7 +27,6 @@
             padding: 20px;
         }
 
-        /* Light Mode */
         body.light {
             background: #f0f4ff;
         }
@@ -135,7 +135,6 @@
             background: rgba(0, 0, 0, 0.08);
         }
 
-        /* Dark Mode (Default) */
         .glass-card {
             background: rgba(10, 14, 30, 0.85);
             backdrop-filter: blur(20px);
@@ -208,7 +207,6 @@
             display: block;
         }
 
-        /* Option Cards */
         .option-card {
             background: rgba(255, 255, 255, 0.03);
             border: 2px solid rgba(59, 130, 246, 0.2);
@@ -250,7 +248,6 @@
             margin-top: 4px;
         }
 
-        /* Buttons */
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
             border: none;
@@ -294,7 +291,6 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Theme Toggle */
         .theme-toggle {
             position: absolute;
             top: 20px;
@@ -317,7 +313,6 @@
             border-color: #3b82f6;
         }
 
-        /* Status */
         .status-box {
             border-radius: 16px;
             padding: 20px;
@@ -354,7 +349,6 @@
             color: #60a5fa;
         }
 
-        /* QR Container */
         #qrContainer {
             display: none;
             margin-top: 20px;
@@ -369,11 +363,12 @@
             border-radius: 16px;
             background: white;
             padding: 16px;
-            max-width: 250px;
+            max-width: 280px;
             width: 100%;
+            margin: 0 auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         }
 
-        /* Session Output */
         #sessionOutput {
             display: none;
             margin-top: 20px;
@@ -435,7 +430,23 @@
             box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3);
         }
 
-        /* Responsive */
+        .pairing-code-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            text-align: center;
+        }
+
+        .pairing-code-display .code {
+            font-size: 32px;
+            font-weight: 800;
+            color: #4ade80;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
         @media (max-width: 600px) {
             .glass-card {
                 padding: 24px;
@@ -452,6 +463,13 @@
                 right: 12px;
                 padding: 6px 12px;
                 font-size: 12px;
+            }
+            #qrContainer img {
+                max-width: 200px;
+            }
+            .pairing-code-display .code {
+                font-size: 24px;
+                letter-spacing: 4px;
             }
         }
     </style>
@@ -480,13 +498,11 @@
         <div class="mb-6">
             <label class="label-text"><i class="fas fa-link mr-2"></i>Connection Method</label>
             <div class="flex gap-4">
-                <!-- Pairing Option -->
                 <div class="option-card active" id="pairOption" onclick="selectMethod('pair')">
                     <span class="icon">📱</span>
                     <div class="title">Pairing Code</div>
                     <div class="desc">Enter 8-digit code on phone</div>
                 </div>
-                <!-- QR Option -->
                 <div class="option-card" id="qrOption" onclick="selectMethod('qr')">
                     <span class="icon">📷</span>
                     <div class="title">QR Code</div>
@@ -527,6 +543,16 @@
             <div class="bg-white/5 rounded-2xl p-4 border border-white/10">
                 <p class="text-secondary text-sm mb-3"><i class="fas fa-qrcode mr-2"></i>Scan this QR code with WhatsApp</p>
                 <img id="qrImage" src="" alt="QR Code" />
+                <p class="text-secondary text-xs mt-3">Open WhatsApp → Linked Devices → Link a Device</p>
+            </div>
+        </div>
+
+        <!-- Pairing Code Display -->
+        <div id="pairingContainer" style="display: none;">
+            <div class="pairing-code-display">
+                <p class="text-secondary text-sm"><i class="fas fa-key mr-2"></i>Pairing Code</p>
+                <div class="code" id="pairingCodeText">------</div>
+                <p class="text-secondary text-xs mt-2">Enter this code on your WhatsApp app</p>
             </div>
         </div>
 
@@ -557,6 +583,7 @@
         let currentSession = '';
         let currentSessionId = '';
         let isDark = true;
+        let qrCheckInterval = null;
 
         // ============= THEME TOGGLE =============
         function toggleTheme() {
@@ -572,8 +599,13 @@
             document.getElementById('pairOption').classList.toggle('active', method === 'pair');
             document.getElementById('qrOption').classList.toggle('active', method === 'qr');
             
+            // Hide/show containers
+            document.getElementById('qrContainer').classList.remove('show');
+            document.getElementById('pairingContainer').style.display = 'none';
+            document.getElementById('sessionOutput').classList.remove('show');
+            
             if (method === 'pair') {
-                document.getElementById('qrContainer').classList.remove('show');
+                document.getElementById('pairingContainer').style.display = 'block';
             }
         }
 
@@ -581,13 +613,11 @@
         async function generateSession() {
             const phone = document.getElementById('phoneNumber').value.trim();
             
-            // Validate phone number
             if (!phone || phone.length < 7) {
                 showStatus('error', '❌ Tafadhali weka namba sahihi ya simu (angalau tarakimu 7)');
                 return;
             }
 
-            // UI: loading state
             const btn = document.getElementById('generateBtn');
             btn.classList.add('loading');
             btn.disabled = true;
@@ -606,57 +636,54 @@
                 const data = await response.json();
                 console.log('📦 Server response:', data);
 
-                // ======== HANDLE SUCCESS ========
-                if (data.success === true) {
-                    // Show QR if available and method is QR
-                    if (data.qr && currentMethod === 'qr') {
-                        document.getElementById('qrImage').src = 
-                            `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
-                        document.getElementById('qrContainer').classList.add('show');
-                    }
-
-                    // Show session if available
-                    if (data.session && typeof data.session === 'string' && data.session.length > 0) {
-                        currentSession = data.session;
-                        currentSessionId = data.sessionId || 'session_' + Date.now();
-                        
-                        // Display session (shortened)
-                        const displayText = data.session.length > 120 
-                            ? data.session.substring(0, 120) + '...' 
-                            : data.session;
-                        document.getElementById('sessionText').textContent = displayText;
-                        document.getElementById('sessionOutput').classList.add('show');
-                        
-                        showStatus('success', '✅ Session generated successfully!');
-                    } else {
-                        // Success but no session (e.g., waiting for scan)
-                        const msg = data.message || data.whatsappMessage || '✅ Process started! Check your WhatsApp.';
-                        showStatus('info', msg);
-                    }
-
-                    // Override with WhatsApp message if exists
-                    if (data.whatsappMessage) {
-                        showStatus('success', `✅ ${data.whatsappMessage}`);
-                    }
-
-                } else if (data.qr) {
-                    // QR only - waiting for scan
+                // ======== HANDLE QR CODE ========
+                if (data.qr) {
                     document.getElementById('qrImage').src = 
                         `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
                     document.getElementById('qrContainer').classList.add('show');
-                    showStatus('waiting', '⏳ Waiting for scan... Scan QR code with WhatsApp');
+                    showStatus('waiting', '⏳ Scan QR code with WhatsApp to connect');
+                }
 
-                } else {
-                    // Error case
-                    const errorMsg = data.error || data.message || '❌ Failed to generate session. Please try again.';
-                    showStatus('error', errorMsg);
+                // ======== HANDLE PAIRING CODE ========
+                if (data.pairingCode) {
+                    document.getElementById('pairingCodeText').textContent = data.pairingCode;
+                    document.getElementById('pairingContainer').style.display = 'block';
+                    showStatus('success', '✅ Pairing code sent to your WhatsApp!');
+                }
+
+                // ======== HANDLE SESSION ========
+                if (data.success === true && data.session) {
+                    currentSession = data.session;
+                    currentSessionId = data.sessionId || 'session_' + Date.now();
+                    
+                    const displayText = data.session.length > 120 
+                        ? data.session.substring(0, 120) + '...' 
+                        : data.session;
+                    document.getElementById('sessionText').textContent = displayText;
+                    document.getElementById('sessionOutput').classList.add('show');
+                    
+                    showStatus('success', '✅ Session generated successfully!');
+                }
+
+                // ======== HANDLE WHATSAPP MESSAGE ========
+                if (data.whatsappMessage) {
+                    showStatus('success', `✅ ${data.whatsappMessage}`);
+                }
+
+                // ======== HANDLE ERROR ========
+                if (data.error) {
+                    showStatus('error', `❌ ${data.error}`);
+                }
+
+                // If no QR and no error, but waiting
+                if (!data.qr && !data.error && !data.session && !data.pairingCode) {
+                    showStatus('info', '⏳ Processing... Please wait.');
                 }
 
             } catch (error) {
                 console.error('❌ Fetch error:', error);
-                showStatus('error', `❌ Network error: ${error.message}. Check your connection and try again.`);
+                showStatus('error', `❌ Network error: ${error.message}`);
             } finally {
-                // Reset button
                 btn.classList.remove('loading');
                 btn.disabled = false;
             }
@@ -666,12 +693,8 @@
         function showStatus(type, message) {
             const box = document.getElementById('statusBox');
             const content = document.getElementById('statusContent');
-            
-            // Reset classes
             box.className = 'status-box show';
             box.classList.add(`status-${type}`);
-            
-            // Handle message (could be plain text or HTML)
             content.innerHTML = message;
         }
 
@@ -679,6 +702,7 @@
             document.getElementById('statusBox').classList.remove('show');
             document.getElementById('qrContainer').classList.remove('show');
             document.getElementById('sessionOutput').classList.remove('show');
+            document.getElementById('pairingContainer').style.display = 'none';
         }
 
         function copySession() {
@@ -690,7 +714,6 @@
             navigator.clipboard.writeText(currentSession).then(() => {
                 showStatus('success', '✅ Session copied to clipboard!');
             }).catch(() => {
-                // Fallback for older browsers
                 const textarea = document.createElement('textarea');
                 textarea.value = currentSession;
                 document.body.appendChild(textarea);
@@ -722,10 +745,7 @@
         });
 
         // ============= INIT =============
-        // Set default method
         selectMethod('pair');
-
-        // Auto-focus on phone input
         document.getElementById('phoneNumber').focus();
     </script>
 </body>
