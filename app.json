@@ -1,0 +1,24 @@
+{
+  "name": "Baileys Session Generator",
+  "description": "Generate Base64 WhatsApp sessions with zlib",
+  "keywords": ["whatsapp", "baileys", "session"],
+  "env": {
+    "SESSION_TIMEOUT": {
+      "description": "Session timeout in milliseconds",
+      "value": "120000",
+      "required": false
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "stack": "heroku-24"
+}
