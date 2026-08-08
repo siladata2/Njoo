@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baileys Session Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-900 to-purple-900 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 max-w-2xl w-full shadow-2xl border border-white/20">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">🔐 Session Generator</h1>
+            <p class="text-blue-200">Generate Base64 sessions for your WhatsApp bot</p>
+            <div class="mt-2 inline-block bg-green-500/20 px-4 py-1 rounded-full">
+                <span class="text-green-300 text-sm">⚡ SILA~ format with zlib compression</span>
+            </div>
+        </div>
+        
+        <!-- Input Form -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-white text-sm font-medium mb-2">📱 Phone Number</label>
+                <div class="flex gap-2">
+                    <span class="bg-white/20 text-white px-3 py-2 rounded-lg">+255</span>
+                    <input 
+                        type="tel" 
+                        id="phoneNumber" 
+                        placeholder="7xxxxxxxx" 
+                        class="flex-1 px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20 focus:border-blue-400 focus:outline-none transition"
+                        required
+                    />
+                </div>
+                <p class="text-blue-200 text-xs mt-1">Example: 712345678</p>
+            </div>
+            
+            <button 
+                id="generateBtn" 
+                onclick="generateSession()"
+                class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+            >
+                <span id="btnText">🚀 Generate Session</span>
+                <span id="loadingSpinner" class="hidden">
+                    <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                </span>
+            </button>
+        </div>
+        
+        <!-- Status Messages -->
+        <div id="status" class="mt-4 hidden">
+            <div id="statusContent" class="p-4 rounded-lg bg-white/5 border border-white/10"></div>
+        </div>
+        
+        <!-- QR Code Display -->
+        <div id="qrContainer" class="mt-6 hidden">
+            <div class="bg-white p-4 rounded-lg">
+                <p class="text-gray-600 text-sm text-center mb-2">📱 Scan this QR with WhatsApp</p>
+                <div id="qrCode" class="flex justify-center">
+                    <img id="qrImage" src="" alt="QR Code" class="w-64 h-64 object-contain"/>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Session Output -->
+        <div id="sessionOutput" class="mt-6 hidden">
+            <div class="bg-black/40 rounded-lg p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-white font-medium">📋 Generated Session</span>
+                    <button onclick="copySession()" class="text-blue-300 hover:text-blue-200 text-sm">📋 Copy</button>
+                </div>
+                <div id="sessionText" class="text-green-300 text-xs break-all bg-black/40 p-3 rounded-lg font-mono max-h-40 overflow-auto"></div>
+                <button id="downloadBtn" class="mt-3 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg transition flex items-center justify-center gap-2">
+                    ⬇️ Download Session File
+                </button>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="mt-6 text-center text-blue-200 text-xs">
+            ⚡ Powered by Baileys & zlib | Session format: SILA~[Base64 compressed]
+        </div>
+    </div>
+
+    <script>
+        let currentSession = '';
+        let currentSessionId = '';
+        
+        async function generateSession() {
+            const phone = document.getElementById('phoneNumber').value.trim();
+            
+            if (!phone || phone.length < 7) {
+                alert('Tafadhali weka namba sahihi ya simu!');
+                return;
+            }
+            
+            // UI updates
+            document.getElementById('btnText').textContent = '⏳ Generating...';
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('status').classList.add('hidden');
+            document.getElementById('qrContainer').classList.add('hidden');
+            document.getElementById('sessionOutput').classList.add('hidden');
+            
+            try {
+                const response = await fetch('/generate-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber: phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show QR code
+                    if (data.qr) {
+                        document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
+                        document.getElementById('qrContainer').classList.remove('hidden');
+                        
+                        document.getElementById('statusContent').innerHTML = `
+                            <div class="text-green-300">✅ ${data.message}</div>
+                            <div class="text-blue-200 text-sm mt-1">📱 Scan QR code above with WhatsApp</div>
+                        `;
+                    }
+                    
+                    // Show session
+                    currentSession = data.session;
+                    currentSessionId = data.sessionId;
+                    document.getElementById('sessionText').textContent = data.session.substring(0, 100) + '... [Session generated]';
+                    document.getElementById('sessionOutput').classList.remove('hidden');
+                    
+                    // Download button
+                    document.getElementById('downloadBtn').onclick = function() {
+                        window.location.href = `/download/${data.sessionId}`;
+                    };
+                    
+                    document.getElementById('status').classList.remove('hidden');
+                    document.getElementById('statusContent').className = 'p-4 rounded-lg bg-green-500/20 border border-green-500/30';
+                    
+                } else if (data.qr) {
+                    // Show QR without session
+                    document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
+                    document.getElementById('qrContainer').classList.remove('hidden');
+                    
+                    document.getElementById('statusContent').innerHTML = `
+                        <div class="text-yellow-300">⏳ Waiting for scan...</div>
+                        <div class="text-blue-200 text-sm mt-1">Scan QR code or wait for pairing code</div>
+                    `;
+                    document.getElementById('status').classList.remove('hidden');
+                    document.getElementById('statusContent').className = 'p-4 rounded-lg bg-yellow-500/20 border border-yellow-500/30';
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+                
+            } catch (error) {
+                document.getElementById('statusContent').innerHTML = `
+                    <div class="text-red-300">❌ Error: ${error.message}</div>
+                    <div class="text-blue-200 text-sm mt-1">Try again or check console for details</div>
+                `;
+                document.getElementById('status').classList.remove('hidden');
+                document.getElementById('statusContent').className = 'p-4 rounded-lg bg-red-500/20 border border-red-500/30';
+            } finally {
+                document.getElementById('btnText').textContent = '🚀 Generate Session';
+                document.getElementById('loadingSpinner').classList.add('hidden');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+        
+        function copySession() {
+            navigator.clipboard.writeText(currentSession).then(() => {
+                alert('✅ Session copied to clipboard!');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = currentSession;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('✅ Session copied!');
+            });
+        }
+        
+        // Enter key support
+        document.getElementById('phoneNumber').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                generateSession();
+            }
+        });
+    </script>
+</body>
+</html>
