@@ -56,6 +56,10 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
 
+        body.light .input-field::placeholder {
+            color: #94a3b8;
+        }
+
         body.light .label-text {
             color: #1a2332;
         }
@@ -75,6 +79,14 @@
             background: rgba(59, 130, 246, 0.05);
         }
 
+        body.light .option-card .title {
+            color: #1a2332;
+        }
+
+        body.light .option-card .desc {
+            color: #64748b;
+        }
+
         body.light .status-success {
             background: rgba(34, 197, 94, 0.1);
             border: 1px solid rgba(34, 197, 94, 0.3);
@@ -88,6 +100,39 @@
         body.light .status-waiting {
             background: rgba(234, 179, 8, 0.1);
             border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        body.light .status-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        body.light .session-box {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light .session-text {
+            background: rgba(0, 0, 0, 0.03);
+            color: #16a34a;
+        }
+
+        body.light .btn-copy {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: #2563eb;
+        }
+
+        body.light .btn-copy:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        body.light .theme-toggle {
+            color: #1a2332;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.08);
         }
 
         /* Dark Mode (Default) */
@@ -205,14 +250,6 @@
             margin-top: 4px;
         }
 
-        body.light .option-card .title {
-            color: #1a2332;
-        }
-
-        body.light .option-card .desc {
-            color: #64748b;
-        }
-
         /* Buttons */
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
@@ -278,15 +315,6 @@
         .theme-toggle:hover {
             background: rgba(255, 255, 255, 0.1);
             border-color: #3b82f6;
-        }
-
-        body.light .theme-toggle {
-            color: #1a2332;
-            background: rgba(0, 0, 0, 0.05);
-        }
-
-        body.light .theme-toggle:hover {
-            background: rgba(0, 0, 0, 0.08);
         }
 
         /* Status */
@@ -362,10 +390,6 @@
             border: 1px solid rgba(59, 130, 246, 0.2);
         }
 
-        body.light .session-box {
-            background: rgba(0, 0, 0, 0.05);
-        }
-
         .session-text {
             color: #4ade80;
             font-size: 12px;
@@ -376,11 +400,6 @@
             background: rgba(0, 0, 0, 0.2);
             padding: 12px;
             border-radius: 8px;
-        }
-
-        body.light .session-text {
-            background: rgba(0, 0, 0, 0.03);
-            color: #16a34a;
         }
 
         .btn-copy {
@@ -553,7 +572,6 @@
             document.getElementById('pairOption').classList.toggle('active', method === 'pair');
             document.getElementById('qrOption').classList.toggle('active', method === 'qr');
             
-            // Hide QR if pair mode
             if (method === 'pair') {
                 document.getElementById('qrContainer').classList.remove('show');
             }
@@ -562,8 +580,10 @@
         // ============= GENERATE SESSION =============
         async function generateSession() {
             const phone = document.getElementById('phoneNumber').value.trim();
+            
+            // Validate phone number
             if (!phone || phone.length < 7) {
-                showStatus('error', '❌ Please enter a valid phone number');
+                showStatus('error', '❌ Tafadhali weka namba sahihi ya simu (angalau tarakimu 7)');
                 return;
             }
 
@@ -584,42 +604,59 @@
                 });
 
                 const data = await response.json();
+                console.log('📦 Server response:', data);
 
-                if (data.success) {
+                // ======== HANDLE SUCCESS ========
+                if (data.success === true) {
                     // Show QR if available and method is QR
                     if (data.qr && currentMethod === 'qr') {
                         document.getElementById('qrImage').src = 
                             `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
                         document.getElementById('qrContainer').classList.add('show');
-                        showStatus('success', '✅ Session generated successfully! Scan QR or check pairing code.');
-                    } else if (currentMethod === 'pair') {
-                        showStatus('info', '📱 Pairing code sent! Check your WhatsApp for 8-digit code.');
                     }
 
-                    // Show session
-                    currentSession = data.session;
-                    currentSessionId = data.sessionId;
-                    document.getElementById('sessionText').textContent = data.session.substring(0, 120) + '...';
-                    document.getElementById('sessionOutput').classList.add('show');
+                    // Show session if available
+                    if (data.session && typeof data.session === 'string' && data.session.length > 0) {
+                        currentSession = data.session;
+                        currentSessionId = data.sessionId || 'session_' + Date.now();
+                        
+                        // Display session (shortened)
+                        const displayText = data.session.length > 120 
+                            ? data.session.substring(0, 120) + '...' 
+                            : data.session;
+                        document.getElementById('sessionText').textContent = displayText;
+                        document.getElementById('sessionOutput').classList.add('show');
+                        
+                        showStatus('success', '✅ Session generated successfully!');
+                    } else {
+                        // Success but no session (e.g., waiting for scan)
+                        const msg = data.message || data.whatsappMessage || '✅ Process started! Check your WhatsApp.';
+                        showStatus('info', msg);
+                    }
 
-                    // WhatsApp notification
+                    // Override with WhatsApp message if exists
                     if (data.whatsappMessage) {
                         showStatus('success', `✅ ${data.whatsappMessage}`);
                     }
 
                 } else if (data.qr) {
-                    // Show QR without session (waiting for scan)
+                    // QR only - waiting for scan
                     document.getElementById('qrImage').src = 
                         `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
                     document.getElementById('qrContainer').classList.add('show');
-                    showStatus('waiting', '⏳ Waiting for scan... Scan QR code on WhatsApp');
+                    showStatus('waiting', '⏳ Waiting for scan... Scan QR code with WhatsApp');
+
                 } else {
-                    showStatus('error', data.error || '❌ Failed to generate session');
+                    // Error case
+                    const errorMsg = data.error || data.message || '❌ Failed to generate session. Please try again.';
+                    showStatus('error', errorMsg);
                 }
 
             } catch (error) {
-                showStatus('error', `❌ Error: ${error.message}`);
+                console.error('❌ Fetch error:', error);
+                showStatus('error', `❌ Network error: ${error.message}. Check your connection and try again.`);
             } finally {
+                // Reset button
                 btn.classList.remove('loading');
                 btn.disabled = false;
             }
@@ -629,7 +666,12 @@
         function showStatus(type, message) {
             const box = document.getElementById('statusBox');
             const content = document.getElementById('statusContent');
-            box.className = `status-box show status-${type}`;
+            
+            // Reset classes
+            box.className = 'status-box show';
+            box.classList.add(`status-${type}`);
+            
+            // Handle message (could be plain text or HTML)
             content.innerHTML = message;
         }
 
@@ -640,34 +682,51 @@
         }
 
         function copySession() {
-            if (!currentSession) return;
+            if (!currentSession || currentSession.length === 0) {
+                showStatus('error', '❌ No session to copy. Generate a session first.');
+                return;
+            }
+            
             navigator.clipboard.writeText(currentSession).then(() => {
                 showStatus('success', '✅ Session copied to clipboard!');
             }).catch(() => {
-                // Fallback
+                // Fallback for older browsers
                 const textarea = document.createElement('textarea');
                 textarea.value = currentSession;
                 document.body.appendChild(textarea);
                 textarea.select();
-                document.execCommand('copy');
+                try {
+                    document.execCommand('copy');
+                    showStatus('success', '✅ Session copied!');
+                } catch (e) {
+                    showStatus('error', '❌ Failed to copy. Please select and copy manually.');
+                }
                 document.body.removeChild(textarea);
-                showStatus('success', '✅ Session copied!');
             });
         }
 
         function downloadSession() {
-            if (!currentSessionId) return;
+            if (!currentSessionId || currentSessionId.length === 0) {
+                showStatus('error', '❌ No session to download. Generate a session first.');
+                return;
+            }
             window.location.href = `/download/${currentSessionId}`;
         }
 
         // ============= ENTER KEY SUPPORT =============
         document.getElementById('phoneNumber').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') generateSession();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                generateSession();
+            }
         });
 
         // ============= INIT =============
         // Set default method
         selectMethod('pair');
+
+        // Auto-focus on phone input
+        document.getElementById('phoneNumber').focus();
     </script>
 </body>
 </html>
