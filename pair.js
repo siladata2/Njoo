@@ -1,16 +1,26 @@
-const { makeid } = require('./gen-id');
+const { makeid } = require('./id');
 const express = require('express');
-const QRCode = require('qrcode');
 const fs = require('fs');
-let router = express.Router();
-const pino = require("pino");
-const zlib = require('zlib');
 const path = require('path');
+const pino = require('pino');
+const zlib = require('zlib');
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    Browsers,
+    delay,
+    makeCacheableSignalKeyStore,
+    fetchLatestBaileysVersion,
+    DisconnectReason,
+} = require("@whiskeysockets/baileys");
 
-// ============= HELPER FUNCTIONS =============
-function removeFile(FilePath) {
-    if (!fs.existsSync(FilePath)) return false;
-    fs.rmSync(FilePath, { recursive: true, force: true });
+const router = express.Router();
+
+// ===== HELPER FUNCTIONS =====
+function removeFile(filePath) {
+    if (!fs.existsSync(filePath)) return false;
+    fs.rmSync(filePath, { recursive: true, force: true });
+    return true;
 }
 
 function generateSessionId() {
@@ -23,181 +33,183 @@ function generateSessionId() {
     return sessionID;
 }
 
-// dynamically load baileys when needed (ESM-only module)
-let makeWASocket, useMultiFileAuthState, delay, Browsers, jidNormalizedUser;
-
+// ===== PAIRING CODE GENERATOR =====
 router.get('/', async (req, res) => {
     const id = makeid();
     let num = req.query.number;
-    const method = req.query.method || 'pair';
+    let device = req.query.device || 'SILA-MD';
 
-    if (!num || num.length < 7) {
+    // Hakikisha namba imetolewa
+    if (!num) {
         return res.status(400).json({
             success: false,
-            error: 'Tafadhali weka namba sahihi ya simu'
+            error: 'Number is required',
+            message: 'Please provide a phone number with country code'
         });
     }
 
-    try {
-        await BLAZE_MD_PAIR_CODE();
-    } catch (err) {
-        console.error('❌ Pairing route crashed:', err);
-        if (!res.headersSent) {
-            await res.status(502).json({
-                success: false,
-                error: 'Pairing service temporarily unavailable'
-            });
-        }
+    // Safisha namba
+    num = num.replace(/[^0-9]/g, '');
+
+    if (num.length < 9) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid number. Use country code (e.g., 255...), at least 9 digits'
+        });
     }
 
-    async function BLAZE_MD_PAIR_CODE() {
-        // load baileys modules lazily to avoid ESM import errors
-        if (!makeWASocket) {
-            const baileys = await import('@whiskeysockets/baileys');
-            makeWASocket = baileys.makeWASocket;
-            useMultiFileAuthState = baileys.useMultiFileAuthState;
-            delay = baileys.delay;
-            Browsers = baileys.Browsers;
-            jidNormalizedUser = baileys.jidNormalizedUser;
-        }
+    let responseSent = false;
+    const sessionPath = './temp/' + id;
 
-        const { state, saveCreds } = await useMultiFileAuthState('./temp/' + id);
-
+    async function SILA_PAIR() {
+        const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
         try {
-            const items = ["Safari", "Chrome", "Firefox"];
-            const randomItem = items[Math.floor(Math.random() * items.length)];
+            const { version } = await fetchLatestBaileysVersion();
+            const logger = pino({ level: 'silent' });
 
-            let sock = makeWASocket({
-                auth: state,
+            const client = makeWASocket({
+                version,
+                auth: {
+                    creds: state.creds,
+                    keys: makeCacheableSignalKeyStore(state.keys, logger),
+                },
                 printQRInTerminal: false,
-                logger: pino({ level: "silent" }),
-                browser: Browsers.macOS(randomItem),
+                logger,
+                browser: Browsers.ubuntu('Chrome'),
+                connectTimeoutMs: 60000,
+                keepAliveIntervalMs: 10000,
             });
 
-            let qrCode = null;
-            let isConnected = false;
-            let responseSent = false;
+            client.ev.on('creds.update', saveCreds);
 
-            // ============ HANDLE PAIRING ============
-            if (method === 'pair' && !sock.authState.creds.registered) {
+            // ===== REQUEST PAIRING CODE =====
+            if (!client.authState.creds.registered) {
                 try {
-                    // Request pairing code
-                    const code = await sock.requestPairingCode(num);
-                    console.log('📱 Pairing code sent to:', num);
+                    await delay(1500);
+                    const code = await client.requestPairingCode(num);
+                    console.log(`📱 Pairing code sent to ${num}`);
+                    console.log(`🔑 Code: ${code}`);
 
                     if (!responseSent) {
                         responseSent = true;
                         res.json({
                             success: true,
+                            method: 'pairing',
                             pairingCode: code,
-                            message: 'Pairing code sent to your WhatsApp!'
+                            message: 'Pairing code sent! Check your WhatsApp.',
+                            device: device,
+                            number: num
                         });
                     }
                 } catch (err) {
-                    console.log('⚠️ Pairing failed, falling back to QR');
-                }
-            }
-
-            // ============ HANDLE QR ============
-            sock.ev.on('connection.update', async (s) => {
-                const { connection, qr, lastDisconnect } = s;
-
-                // Capture QR
-                if (qr) {
-                    qrCode = qr;
-                    console.log('📷 QR Code generated');
-
-                    if (method === 'qr' && !responseSent) {
+                    console.error('❌ Pairing failed:', err);
+                    if (!responseSent) {
                         responseSent = true;
-                        res.json({
+                        res.status(400).json({
                             success: false,
-                            qr: qrCode,
-                            message: 'Scan QR code with WhatsApp to connect'
+                            error: 'Failed to generate pairing code. Please try again.',
+                            details: err.message
                         });
                     }
                 }
+            }
 
-                // ============ CONNECTION OPEN ============
-                if (connection === "open" && sock?.user?.id) {
-                    isConnected = true;
-                    console.log('✅ Connected successfully!');
+            // ===== CONNECTION UPDATE =====
+            client.ev.on('connection.update', async (s) => {
+                const { connection, lastDisconnect } = s;
 
-                    await delay(3000);
-                    await saveCreds();
-
-                    // Read session files
-                    const authPath = './temp/' + id;
-                    const files = fs.readdirSync(authPath);
-                    const sessionData = {};
-
-                    files.forEach(file => {
-                        const filePath = path.join(authPath, file);
-                        if (fs.statSync(filePath).isFile()) {
-                            sessionData[file] = fs.readFileSync(filePath);
-                        }
-                    });
-
-                    // Compress with zlib
-                    const jsonData = JSON.stringify(sessionData);
-                    const compressed = zlib.deflateSync(jsonData);
-                    const base64Session = `SILA~${compressed.toString('base64')}`;
-
-                    // Send session to WhatsApp
-                    const userJid = sock.user.id;
-                    const sessionId = generateSessionId();
-
+                // ===== CONNECTION OPEN =====
+                if (connection === 'open') {
                     try {
+                        console.log('✅ Connected successfully!');
+                        console.log(`📱 User: ${client.user.id}`);
+                        console.log(`👤 Name: ${client.user.name || 'Unknown'}`);
+
+                        await delay(3000);
+                        await saveCreds();
+
+                        // Read session files
+                        const authPath = './temp/' + id;
+                        const files = fs.readdirSync(authPath);
+                        const sessionData = {};
+
+                        files.forEach(file => {
+                            const filePath = path.join(authPath, file);
+                            if (fs.statSync(filePath).isFile()) {
+                                sessionData[file] = fs.readFileSync(filePath);
+                            }
+                        });
+
+                        // Compress with zlib
+                        const jsonData = JSON.stringify(sessionData);
+                        const compressed = zlib.deflateSync(jsonData);
+                        const base64Session = `SILA~${compressed.toString('base64')}`;
+
+                        const sessionId = generateSessionId();
+
                         // Send session via WhatsApp
-                        await sock.sendMessage(userJid, {
-                            text: `🔐 *Your Session Code:*\n\`\`\`${base64Session}\`\`\`\n\n⚠️ *Keep this code safe!*\nDo not share it with anyone.`
-                        });
-
-                        // Send success message
-                        await sock.sendMessage(userJid, {
-                            text: `✅ *Session Generated Successfully!*\n\n` +
-                                `📱 *Device:* ${sock.user.name || 'WhatsApp Bot'}\n` +
+                        await client.sendMessage(client.user.id, {
+                            text: `🔐 *SILA SESSION*\n\n` +
+                                `📱 *Device:* ${device}\n` +
                                 `🔑 *Session ID:* ${sessionId}\n\n` +
-                                `> © Powered by SILA Session Generator`
+                                `\`\`\`${base64Session}\`\`\`\n\n` +
+                                `⚠️ *Keep this code safe!*\nDo not share it with anyone.`
                         });
 
-                        console.log(`✅ Session sent to ${userJid}`);
+                        await delay(2000);
 
-                        // Send response to frontend
+                        // Send success message with box
+                        await client.sendMessage(client.user.id, {
+                            text: `┏━❑ *SILA SESSION* ✅\n` +
+                                `┏━❑ *SAFETY RULES* ━━━━━━━━━\n` +
+                                `┃ 🔹 *Session:* Sent above.\n` +
+                                `┃ 🔹 *Warning:* Do not share this code!\n` +
+                                `┃ 🔹 Keep this code safe.\n` +
+                                `┃ 🔹 Valid for 24 hours only.\n` +
+                                `┗━━━━━━━━━━━━━━━\n\n` +
+                                `> © 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐁𝐲 𝐒𝐈𝐋𝐀 𝐓𝐞𝐜𝐡`
+                        });
+
+                        console.log(`✅ Session sent to ${client.user.id}`);
+
+                        // Send response to frontend if not sent yet
                         if (!responseSent) {
                             responseSent = true;
                             res.json({
                                 success: true,
+                                method: 'pairing',
                                 session: base64Session,
                                 sessionId: sessionId,
                                 whatsappMessage: '✅ Session sent to your WhatsApp!'
                             });
                         }
 
+                        // Clean up
+                        await delay(2000);
+                        await client.ws.close();
+                        removeFile('./temp/' + id);
+                        console.log(`🗑️ Cleaned up: ${id}`);
+
                     } catch (err) {
-                        console.error('❌ Failed to send session:', err);
+                        console.error('❌ Error sending session:', err);
                         if (!responseSent) {
                             responseSent = true;
-                            res.json({
-                                success: true,
-                                session: base64Session,
-                                sessionId: sessionId,
-                                whatsappMessage: '✅ Session generated! (Check console)'
+                            res.status(500).json({
+                                success: false,
+                                error: 'Failed to send session',
+                                details: err.message
                             });
                         }
+                        removeFile('./temp/' + id);
                     }
-
-                    // Clean up after 2 minutes
-                    await delay(2000);
-                    await sock.ws.close();
-                    await removeFile('./temp/' + id);
-                    console.log(`🗑️ Cleaned up: ${id}`);
-                    return;
                 }
 
-                // ============ HANDLE DISCONNECT ============
-                if (connection === "close" && lastDisconnect) {
-                    const statusCode = lastDisconnect.error?.output?.statusCode;
-                    if (statusCode === 401) {
+                // ===== DISCONNECT =====
+                if (connection === 'close') {
+                    const code = lastDisconnect?.error?.output?.statusCode;
+                    console.log(`🔌 Connection closed with code: ${code}`);
+
+                    if (code === DisconnectReason.loggedOut) {
                         console.log('❌ Device logged out');
                         if (!responseSent) {
                             responseSent = true;
@@ -206,39 +218,40 @@ router.get('/', async (req, res) => {
                                 error: 'Device logged out. Please logout from WhatsApp and try again.'
                             });
                         }
-                    } else if (statusCode !== 401) {
-                        // Reconnect
+                    } else if (code !== DisconnectReason.loggedOut) {
                         console.log('🔄 Reconnecting...');
-                        await delay(3000);
-                        BLAZE_MD_PAIR_CODE();
+                        await delay(5000);
+                        SILA_PAIR();
                     }
                 }
             });
 
-            // ============ TIMEOUT ============
+            // ===== TIMEOUT =====
             setTimeout(() => {
                 if (!responseSent) {
                     responseSent = true;
                     res.status(408).json({
                         success: false,
-                        qr: qrCode,
                         error: 'Timeout! Please try again.'
                     });
                 }
             }, 120000);
 
         } catch (err) {
-            console.log("⚠️ Connection failed:", err);
-            await removeFile('./temp/' + id);
+            console.error('❌ SILA Pair service error:', err);
             if (!responseSent) {
                 responseSent = true;
                 res.status(500).json({
                     success: false,
-                    error: err.message || 'Service unavailable'
+                    error: 'Service is Currently Unavailable',
+                    details: err.message
                 });
             }
+            removeFile('./temp/' + id);
         }
     }
+
+    return await SILA_PAIR();
 });
 
 module.exports = router;
