@@ -1,56 +1,41 @@
 const express = require('express');
-const router = express.Router();
-const path = require('path');
-const pairRouter = require('./pair');
-const qrRouter = require('./qr');
+const app = express();
+__path = process.cwd();
+const bodyParser = require("body-parser");
+const port = process.env.PORT || 8000;
 
-// ===== ROOT ROUTER =====
-router.get('/', (req, res) => {
-    res.json({
-        name: 'SILA Session Generator',
-        version: '2.0.0',
-        endpoints: {
-            pair: '/pair?number=2557xxxxxxxx',
-            qr: '/qr?number=2557xxxxxxxx',
-            health: '/health',
-            web: '/sila'
-        },
-        documentation: 'https://github.com/yourusername/sila-session-generator'
-    });
+// ===== IMPORT ROUTES =====
+let server = require('./qr');
+let code = require('./pair');
+
+// ===== CONFIGURATION =====
+require('events').EventEmitter.defaultMaxListeners = 500;
+
+// ===== MIDDLEWARE =====
+app.use(express.static(__path));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// ===== ROUTES =====
+app.use('/qr', server);
+app.use('/code', code);
+
+// Pairing page
+app.use('/pair', async (req, res, next) => {
+    res.sendFile(__path + '/pair.html');
 });
 
-// ===== SERVE SILA FRONTEND =====
-router.get('/sila', (req, res) => {
-    res.sendFile(path.join(__dirname, 'sila', 'index.html'));
+// Main page (home)
+app.use('/', async (req, res, next) => {
+    res.sendFile(__path + '/main.html');
 });
 
-// ===== HEALTH CHECK =====
-router.get('/health', (req, res) => {
-    res.json({
-        status: 'OK',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString()
-    });
+// ===== START SERVER =====
+app.listen(port, () => {
+    console.log(`📡 SILA Session Generator Connected on http://localhost:${port}`);
+    console.log(`📱 Pairing: http://localhost:${port}/pair`);
+    console.log(`📷 QR: http://localhost:${port}/qr?number=2557xxxxxxxx`);
+    console.log(`🔑 Code: http://localhost:${port}/code?number=2557xxxxxxxx`);
 });
 
-// ===== PAIRING ROUTE =====
-router.use('/pair', pairRouter);
-
-// ===== QR ROUTE =====
-router.use('/qr', qrRouter);
-
-// ===== 404 HANDLER =====
-router.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        error: 'Route not found',
-        available: {
-            pair: '/pair?number=2557xxxxxxxx',
-            qr: '/qr?number=2557xxxxxxxx',
-            health: '/health',
-            web: '/sila'
-        }
-    });
-});
-
-module.exports = router;
+module.exports = app;
