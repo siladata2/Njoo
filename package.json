@@ -1,5 +1,5 @@
 {
-  "name": "baileys-session-generator",
+  "name": "sila-session-generator",
   "version": "2.0.0",
   "description": "Premium WhatsApp Session Generator with Pairing & QR support",
   "main": "app.js",
@@ -26,9 +26,8 @@
     "session",
     "generator",
     "pairing",
-    "qr",
-    "base64"
+    "qr"
   ],
-  "author": "Your Name",
+  "author": "SILA Tech",
   "license": "MIT"
 }
