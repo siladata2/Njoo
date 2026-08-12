@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ SILA Session Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0e1a;
+            transition: background 0.4s ease;
+            padding: 20px;
+        }
+
+        body.light {
+            background: #f0f4ff;
+        }
+
+        body.light .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        body.light .text-primary {
+            color: #1a2332;
+        }
+
+        body.light .text-secondary {
+            color: #4a5a72;
+        }
+
+        body.light .input-field {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #1a2332;
+        }
+
+        body.light .input-field:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        body.light .option-card {
+            background: rgba(0, 0, 0, 0.03);
+            border: 2px solid rgba(59, 130, 246, 0.15);
+        }
+
+        body.light .option-card.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        body.light .option-card .title {
+            color: #1a2332;
+        }
+
+        body.light .option-card .desc {
+            color: #64748b;
+        }
+
+        body.light .status-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        body.light .status-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        body.light .status-waiting {
+            background: rgba(234, 179, 8, 0.1);
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        body.light .theme-toggle {
+            color: #1a2332;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(10, 14, 30, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 32px;
+            padding: 48px;
+            max-width: 700px;
+            width: 100%;
+            position: relative;
+            transition: background 0.4s ease, border 0.4s ease;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(59, 130, 246, 0.1);
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 34px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #3b82f6);
+            background-size: 300% 300%;
+            z-index: -1;
+            animation: gradientMove 4s ease-in-out infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .text-primary {
+            color: #ffffff;
+        }
+
+        .text-secondary {
+            color: #94a3b8;
+        }
+
+        .input-field {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 16px;
+            padding: 14px 20px;
+            color: #ffffff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            width: 100%;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .input-field::placeholder {
+            color: #64748b;
+        }
+
+        .label-text {
+            color: #e2e8f0;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .option-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(59, 130, 246, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            text-align: center;
+        }
+
+        .option-card.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.12);
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.15);
+        }
+
+        .option-card:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.06);
+            transform: translateY(-2px);
+        }
+
+        .option-card .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .option-card .title {
+            color: #e2e8f0;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .option-card .desc {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 16px;
+            padding: 16px 32px;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary .spinner {
+            display: none;
+            animation: spin 1s linear infinite;
+        }
+
+        .btn-primary.loading .spinner {
+            display: inline-block;
+        }
+
+        .btn-primary.loading .btn-text {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 50px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #3b82f6;
+        }
+
+        .status-box {
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .status-box.show {
+            display: block;
+        }
+
+        .status-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #4ade80;
+        }
+
+        .status-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .status-waiting {
+            background: rgba(234, 179, 8, 0.1);
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            color: #fbbf24;
+        }
+
+        .status-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+        }
+
+        #qrContainer {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #qrContainer.show {
+            display: block;
+        }
+
+        #qrContainer img {
+            border-radius: 16px;
+            background: white;
+            padding: 16px;
+            max-width: 280px;
+            width: 100%;
+            margin: 0 auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        #sessionOutput {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #sessionOutput.show {
+            display: block;
+        }
+
+        .session-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .session-text {
+            color: #4ade80;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .btn-copy {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 10px;
+            padding: 8px 16px;
+            color: #60a5fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+        }
+
+        .btn-copy:hover {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3);
+        }
+
+        .pairing-code-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            text-align: center;
+        }
+
+        .pairing-code-display .code {
+            font-size: 32px;
+            font-weight: 800;
+            color: #4ade80;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        @media (max-width: 600px) {
+            .glass-card {
+                padding: 24px;
+                border-radius: 24px;
+            }
+            .option-card .icon {
+                font-size: 24px;
+            }
+            .option-card .title {
+                font-size: 14px;
+            }
+            .theme-toggle {
+                top: 12px;
+                right: 12px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            #qrContainer img {
+                max-width: 200px;
+            }
+            .pairing-code-display .code {
+                font-size: 24px;
+                letter-spacing: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-card" id="app">
+        
+        <!-- Theme Toggle -->
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+            <i class="fas fa-moon" id="themeIcon"></i>
+            <span id="themeLabel">Dark</span>
+        </button>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text">
+                <h1 class="text-4xl font-extrabold tracking-tight">⚡ SILA</h1>
+            </div>
+            <p class="text-secondary mt-2 text-sm">Generate Base64 sessions for your WhatsApp bot</p>
+            <div class="mt-3 inline-block bg-blue-500/10 border border-blue-500/30 px-4 py-1.5 rounded-full">
+                <span class="text-blue-400 text-xs font-medium"><i class="fas fa-shield-alt mr-1"></i>SILA~ format · zlib compressed</span>
+            </div>
+        </div>
+
+        <!-- Connection Method -->
+        <div class="mb-6">
+            <label class="label-text"><i class="fas fa-link mr-2"></i>Connection Method</label>
+            <div class="flex gap-4">
+                <div class="option-card active" id="pairOption" onclick="selectMethod('pair')">
+                    <span class="icon">📱</span>
+                    <div class="title">Pairing Code</div>
+                    <div class="desc">Enter 8-digit code on phone</div>
+                </div>
+                <div class="option-card" id="qrOption" onclick="selectMethod('qr')">
+                    <span class="icon">📷</span>
+                    <div class="title">QR Code</div>
+                    <div class="desc">Scan with WhatsApp</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phone Input -->
+        <div class="mb-6">
+            <label class="label-text"><i class="fas fa-phone mr-2"></i>Phone Number</label>
+            <div class="flex items-center gap-2">
+                <span class="text-secondary font-semibold bg-white/5 px-3 py-2.5 rounded-xl border border-white/10">+255</span>
+                <input 
+                    type="tel" 
+                    id="phoneNumber" 
+                    placeholder="680878542" 
+                    class="input-field"
+                    value="680878542"
+                />
+            </div>
+            <p class="text-secondary text-xs mt-1.5"><i class="fas fa-info-circle mr-1"></i>Example: 712345678 (without country code)</p>
+        </div>
+
+        <!-- Generate Button -->
+        <button class="btn-primary" id="generateBtn" onclick="generateSession()">
+            <span class="btn-text"><i class="fas fa-bolt mr-2"></i>Generate Session</span>
+            <span class="spinner"><i class="fas fa-circle-notch"></i></span>
+        </button>
+
+        <!-- Status -->
+        <div class="status-box" id="statusBox">
+            <div id="statusContent"></div>
+        </div>
+
+        <!-- QR Container -->
+        <div id="qrContainer">
+            <div class="bg-white/5 rounded-2xl p-4 border border-white/10">
+                <p class="text-secondary text-sm mb-3"><i class="fas fa-qrcode mr-2"></i>Scan this QR code with WhatsApp</p>
+                <img id="qrImage" src="" alt="QR Code" />
+                <p class="text-secondary text-xs mt-3">Open WhatsApp → Linked Devices → Link a Device</p>
+            </div>
+        </div>
+
+        <!-- Pairing Code Display -->
+        <div id="pairingContainer" style="display: none;">
+            <div class="pairing-code-display">
+                <p class="text-secondary text-sm"><i class="fas fa-key mr-2"></i>Pairing Code</p>
+                <div class="code" id="pairingCode">------</div>
+                <p class="text-secondary text-xs mt-2">Enter this code on your WhatsApp app</p>
+            </div>
+        </div>
+
+        <!-- Session Output -->
+        <div id="sessionOutput">
+            <div class="session-box">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-primary font-semibold text-sm"><i class="fas fa-key mr-2"></i>Session Generated</span>
+                    <button class="btn-copy" onclick="copySession()"><i class="fas fa-copy mr-1"></i>Copy</button>
+                </div>
+                <div class="session-text" id="sessionText"></div>
+                <button class="btn-download" id="downloadBtn" onclick="downloadSession()">
+                    <i class="fas fa-download mr-2"></i>Download Session File
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-6 text-center text-secondary text-xs">
+            <i class="fas fa-bolt mr-1 text-blue-400"></i>
+            Powered by Baileys · <span class="text-blue-400">Secure & Fast</span>
+        </div>
+    </div>
+
+    <script>
+        // ============= STATE =============
+        let currentMethod = 'pair';
+        let currentSession = '';
+        let currentSessionId = '';
+        let isDark = true;
+
+        // ============= THEME TOGGLE =============
+        function toggleTheme() {
+            isDark = !isDark;
+            document.body.classList.toggle('light', !isDark);
+            document.getElementById('themeIcon').className = isDark ? 'fas fa-moon' : 'fas fa-sun';
+            document.getElementById('themeLabel').textContent = isDark ? 'Dark' : 'Light';
+        }
+
+        // ============= METHOD SELECTION =============
+        function selectMethod(method) {
+            currentMethod = method;
+            document.getElementById('pairOption').classList.toggle('active', method === 'pair');
+            document.getElementById('qrOption').classList.toggle('active', method === 'qr');
+            
+            // Hide/show containers
+            document.getElementById('qrContainer').classList.remove('show');
+            document.getElementById('pairingContainer').style.display = 'none';
+            document.getElementById('sessionOutput').classList.remove('show');
+            
+            if (method === 'pair') {
+                document.getElementById('pairingContainer').style.display = 'block';
+            }
+        }
+
+        // ============= GENERATE SESSION =============
+        async function generateSession() {
+            const phone = document.getElementById('phoneNumber').value.trim();
+            
+            if (!phone || phone.length < 7) {
+                showStatus('error', '❌ Tafadhali weka namba sahihi ya simu (angalau tarakimu 7)');
+                return;
+            }
+
+            const btn = document.getElementById('generateBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+            hideAllOutputs();
+
+            try {
+                // Determine which endpoint to use
+                const endpoint = currentMethod === 'pair' ? '/code' : '/qr';
+                const response = await fetch(`${endpoint}?number=${phone}`);
+                
+                // Check if response is image (QR)
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('image/png')) {
+                    // QR code image
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    document.getElementById('qrImage').src = url;
+                    document.getElementById('qrContainer').classList.add('show');
+                    showStatus('waiting', '⏳ Scan QR code with WhatsApp to connect');
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    return;
+                }
+
+                // JSON response (pairing)
+                const data = await response.json();
+                console.log('📦 Server response:', data);
+
+                // ======== HANDLE PAIRING CODE ========
+                if (data.success && data.pairingCode) {
+                    document.getElementById('pairingCode').textContent = data.pairingCode;
+                    document.getElementById('pairingContainer').style.display = 'block';
+                    showStatus('success', '✅ Pairing code sent to your WhatsApp!');
+                }
+
+                // ======== HANDLE SESSION ========
+                if (data.success === true && data.session) {
+                    currentSession = data.session;
+                    currentSessionId = data.sessionId || 'session_' + Date.now();
+                    
+                    const displayText = data.session.length > 120 
+                        ? data.session.substring(0, 120) + '...' 
+                        : data.session;
+                    document.getElementById('sessionText').textContent = displayText;
+                    document.getElementById('sessionOutput').classList.add('show');
+                    
+                    showStatus('success', '✅ Session generated successfully!');
+                }
+
+                // ======== HANDLE WHATSAPP MESSAGE ========
+                if (data.whatsappMessage) {
+                    showStatus('success', `✅ ${data.whatsappMessage}`);
+                }
+
+                // ======== HANDLE ERROR ========
+                if (data.error) {
+                    showStatus('error', `❌ ${data.error}`);
+                }
+
+                // If no QR and no error, but waiting
+                if (!data.qr && !data.error && !data.session && !data.pairingCode) {
+                    showStatus('info', '⏳ Processing... Please wait.');
+                }
+
+            } catch (error) {
+                console.error('❌ Fetch error:', error);
+                showStatus('error', `❌ Network error: ${error.message}`);
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        // ============= UI HELPERS =============
+        function showStatus(type, message) {
+            const box = document.getElementById('statusBox');
+            const content = document.getElementById('statusContent');
+            box.className = 'status-box show';
+            box.classList.add(`status-${type}`);
+            content.innerHTML = message;
+        }
+
+        function hideAllOutputs() {
+            document.getElementById('statusBox').classList.remove('show');
+            document.getElementById('qrContainer').classList.remove('show');
+            document.getElementById('sessionOutput').classList.remove('show');
+            document.getElementById('pairingContainer').style.display = 'none';
+        }
+
+        function copySession() {
+            if (!currentSession || currentSession.length === 0) {
+                showStatus('error', '❌ No session to copy. Generate a session first.');
+                return;
+            }
+            
+            navigator.clipboard.writeText(currentSession).then(() => {
+                showStatus('success', '✅ Session copied to clipboard!');
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = currentSession;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showStatus('success', '✅ Session copied!');
+                } catch (e) {
+                    showStatus('error', '❌ Failed to copy. Please select and copy manually.');
+                }
+                document.body.removeChild(textarea);
+            });
+        }
+
+        function downloadSession() {
+            if (!currentSessionId || currentSessionId.length === 0) {
+                showStatus('error', '❌ No session to download. Generate a session first.');
+                return;
+            }
+            window.location.href = `/download/${currentSessionId}`;
+        }
+
+        // ============= ENTER KEY SUPPORT =============
+        document.getElementById('phoneNumber').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                generateSession();
+            }
+        });
+
+        // ============= INIT =============
+        selectMethod('pair');
+        document.getElementById('phoneNumber').focus();
+    </script>
+</body>
+</html>
