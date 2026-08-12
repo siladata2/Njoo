@@ -20,22 +20,16 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/qr', server);
 app.use('/code', code);
 
-// Pairing page
-app.use('/pair', async (req, res, next) => {
-    res.sendFile(__path + '/pair.html');
-});
-
-// Main page (home)
+// Main page (home) - serve index.html
 app.use('/', async (req, res, next) => {
-    res.sendFile(__path + '/main.html');
+    res.sendFile(__path + '/index.html');
 });
 
 // ===== START SERVER =====
 app.listen(port, () => {
     console.log(`📡 SILA Session Generator Connected on http://localhost:${port}`);
-    console.log(`📱 Pairing: http://localhost:${port}/pair`);
+    console.log(`📱 Pairing: http://localhost:${port}/code?number=2557xxxxxxxx`);
     console.log(`📷 QR: http://localhost:${port}/qr?number=2557xxxxxxxx`);
-    console.log(`🔑 Code: http://localhost:${port}/code?number=2557xxxxxxxx`);
 });
 
 module.exports = app;
